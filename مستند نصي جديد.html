@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brothers in Blood by DJASSER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Outfit:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        blood: { 50:'#fef2f2',100:'#fee2e2',200:'#fecaca',300:'#fca5a5',400:'#f87171',500:'#ef4444',600:'#dc2626',700:'#b91c1c',800:'#991b1b',900:'#7f1d1d',950:'#450a0a' },
+                        dark: { 50:'#f5f0eb',100:'#e5e0db',200:'#7c7c8a',300:'#45454f',400:'#2a2a35',500:'#1a1a24',600:'#13131a',700:'#111118',800:'#0d0d14',900:'#08080f' }
+                    },
+                    fontFamily: { cinzel:['Cinzel','serif'], outfit:['Outfit','sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{font-family:'Outfit',sans-serif;background:#08080f;color:#f5f0eb;overflow-x:hidden}
+
+        /* 浮动血细胞 */
+        .blood-cell{position:absolute;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(220,38,38,0.3),rgba(153,27,27,0.06));animation:cellFloat linear infinite;pointer-events:none;filter:blur(0.5px)}
+        @keyframes cellFloat{0%{transform:translateY(0) rotate(0deg);opacity:0}5%{opacity:.5}90%{opacity:.2}100%{transform:translateY(-115vh) rotate(200deg);opacity:0}}
+
+        /* 心电图线条 */
+        .ecg-wrap{position:absolute;bottom:18%;left:0;width:200%;height:70px;opacity:.15;animation:ecgScroll 5s linear infinite}
+        @keyframes ecgScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+        /* 脉冲光晕 */
+        .pulse-glow{animation:pulseGlow 3s ease-in-out infinite}
+        @keyframes pulseGlow{0%,100%{box-shadow:0 0 20px rgba(220,38,38,0.15)}50%{box-shadow:0 0 40px rgba(220,38,38,0.4),0 0 80px rgba(220,38,38,0.15)}}
+
+        /* 卡片入场 */
+        .card-enter{animation:cardIn .4s ease-out both}
+        @keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+        /* 滚动揭示 */
+        .reveal{opacity:0;transform:translateY(30px);transition:all .7s cubic-bezier(.16,1,.3,1)}
+        .reveal.visible{opacity:1;transform:translateY(0)}
+
+        /* 提示条 */
+        .toast{position:fixed;bottom:24px;right:24px;padding:14px 22px;border-radius:14px;font-weight:500;z-index:9999;transform:translateY(100px);opacity:0;transition:all .4s cubic-bezier(.16,1,.3,1);backdrop-filter:blur(12px);font-size:.9rem;max-width:340px}
+        .toast.show{transform:translateY(0);opacity:1}
+        .toast.success{background:rgba(5,150,105,.92);border:1px solid rgba(5,150,105,.4);color:#fff}
+        .toast.error{background:rgba(220,38,38,.92);border:1px solid rgba(220,38,38,.4);color:#fff}
+
+        /* 滚动条 */
+        ::-webkit-scrollbar{width:7px}
+        ::-webkit-scrollbar-track{background:#08080f}
+        ::-webkit-scrollbar-thumb{background:#2a2a35;border-radius:4px}
+        ::-webkit-scrollbar-thumb:hover{background:#3a3a45}
+
+        /* 血型按钮选中 */
+        .bt-btn{transition:all .2s ease}
+        .bt-btn.sel{background:#dc2626!important;color:#fff!important;border-color:#dc2626!important;transform:scale(1.06);box-shadow:0 0 16px rgba(220,38,38,.3)}
+
+        /* 输入框聚焦 */
+        input:focus,select:focus{outline:none;border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.12)}
+
+        /* 日期选择器暗色 */
+        input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.65);cursor:pointer}
+
+        /* 捐赠者卡片 */
+        .donor-card{transition:all .3s ease;border:1px solid #252530}
+        .donor-card:hover{border-color:rgba(220,38,38,.25);transform:translateY(-3px);box-shadow:0 14px 40px rgba(0,0,0,.45)}
+
+        /* 导航模糊 */
+        .nav-blur{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+
+        /* 渐变文字 */
+        .grad-text{background:linear-gradient(135deg,#ef4444,#dc2626,#991b1b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+        /* 英雄背景光晕 */
+        .hero-mesh{background:radial-gradient(ellipse at 20% 50%,rgba(220,38,38,.07) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(153,27,27,.05) 0%,transparent 50%),radial-gradient(ellipse at 50% 80%,rgba(220,38,38,.03) 0%,transparent 50%)}
+
+        /* 加载旋转 */
+        .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+        @keyframes spin{to{transform:rotate(360deg)}}
+
+        /* 分隔线 */
+        .sep-line{height:1px;background:linear-gradient(90deg,transparent,rgba(220,38,38,.2),transparent)}
+
+        /* RTL调整 */
+        [dir="rtl"] .search-icon{left:auto;right:1rem}
+        [dir="rtl"] .filter-icon{right:auto;left:1rem}
+        [dir="rtl"] .blood-cell{animation-direction:reverse}
+
+        /* 减少动画偏好 */
+        @media(prefers-reduced-motion:reduce){.blood-cell,.ecg-wrap,.pulse-glow{animation:none!important}.reveal{opacity:1!important;transform:none!important;transition:none!important}.card-enter{animation:none!important;opacity:1!important}}
+    </style>
+</head>
+<body class="font-outfit">
+
+    <!-- ===== 导航栏 ===== -->
+    <nav class="fixed top-0 left-0 right-0 z-50 nav-blur bg-dark-900/80 border-b border-dark-400/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3 cursor-pointer select-none" onclick="scrollTo_('hero')">
+                    <div class="w-10 h-10 rounded-full bg-blood-600 flex items-center justify-center pulse-glow">
+                        <i class="fa-solid fa-droplet text-white text-sm"></i>
+                    </div>
+                    <div class="leading-tight">
+                        <span class="font-cinzel font-bold text-sm sm:text-base text-dark-50">BROTHERS IN BLOOD</span>
+                        <span class="hidden sm:block text-dark-200 text-[10px] tracking-wider">by DJASSER</span>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center gap-8">
+                    <button onclick="scrollTo_('hero')" class="text-dark-200 hover:text-dark-50 transition-colors text-sm font-medium" data-t="nav.home">Home</button>
+                    <button onclick="scrollTo_('register')" class="text-dark-200 hover:text-dark-50 transition-colors text-sm font-medium" data-t="nav.register">Register</button>
+                    <button onclick="scrollTo_('donors')" class="text-dark-200 hover:text-dark-50 transition-colors text-sm font-medium" data-t="nav.donors">Donors</button>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="setLang('en')" class="lang-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all" data-lang="en">EN</button>
+                    <button onclick="setLang('fr')" class="lang-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all" data-lang="fr">FR</button>
+                    <button onclick="setLang('ar')" class="lang-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all" data-lang="ar">AR</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===== 英雄区 ===== -->
+    <section id="hero" class="relative min-h-screen flex items-center justify-center hero-mesh overflow-hidden">
+        <div id="bloodCells" class="absolute inset-0 overflow-hidden"></div>
+        <div class="ecg-wrap">
+            <svg viewBox="0 0 1200 70" class="w-full h-full" preserveAspectRatio="none">
+                <polyline points="0,35 90,35 110,35 125,35 140,8 155,62 170,3 185,67 200,35 220,35 300,35 390,35 410,35 425,35 440,8 455,62 470,3 485,67 500,35 520,35 600,35 690,35 710,35 725,35 740,8 755,62 770,3 785,67 800,35 820,35 900,35 990,35 1010,35 1025,35 1040,8 1055,62 1070,3 1085,67 1100,35 1120,35 1200,35" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
+            <div class="mb-6">
+                <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-blood-700/40 bg-blood-950/40 text-blood-400 text-xs font-semibold tracking-widest uppercase">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                    <span data-t="hero.badge">Save Lives, Give Blood</span>
+                </span>
+            </div>
+            <h1 class="font-cinzel font-black text-5xl sm:text-6xl md:text-7xl lg:text-8xl mb-3 leading-[1.1]">
+                <span class="grad-text">BROTHERS</span><br>
+                <span class="text-dark-50">IN BLOOD</span>
+            </h1>
+            <p class="font-cinzel text-blood-500/80 text-base sm:text-lg mb-8 tracking-[.35em]">by DJASSER</p>
+            <p class="text-dark-200 text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed" data-t="hero.desc">Every drop counts. Join our community of blood donors and help save lives.</p>
+            <button onclick="scrollTo_('register')" class="inline-flex items-center gap-3 px-8 py-4 bg-blood-600 hover:bg-blood-500 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-[1.04] hover:shadow-xl hover:shadow-blood-600/20 pulse-glow text-sm sm:text-base">
+                <i class="fa-solid fa-droplet"></i>
+                <span data-t="hero.cta">Become a Donor</span>
+            </button>
+        </div>
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-dark-300">
+            <span class="text-[10px] tracking-[.2em] uppercase">Scroll</span>
+            <div class="w-5 h-8 rounded-full border-2 border-dark-300/60 flex justify-center pt-1.5">
+                <div class="w-1 h-2 bg-dark-200 rounded-full animate-bounce"></div>
+            </div>
+        </div>
+    </section>
+
+    <div class="sep-line"></div>
+
+    <!-- ===== 注册区 ===== -->
+    <section id="register" class="relative py-20 sm:py-28">
+        <div class="max-w-2xl mx-auto px-4 sm:px-6">
+            <div class="text-center mb-12 reveal">
+                <h2 class="font-cinzel font-bold text-3xl sm:text-4xl text-dark-50 mb-3" data-t="form.title">Register as a Donor</h2>
+                <p class="text-dark-200 text-sm sm:text-base" data-t="form.subtitle">Fill in your details to join our donor network</p>
+            </div>
+            <form id="donorForm" class="bg-dark-700/80 rounded-2xl p-6 sm:p-8 border border-dark-400 reveal" onsubmit="return handleSubmit(event)">
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-dark-100 mb-2"><i class="fa-solid fa-user mr-2 text-blood-500 text-xs"></i><span data-t="form.name">Full Name</span></label>
+                    <input type="text" id="fullName" data-tp="form.namePlaceholder" placeholder="Enter your full name" class="w-full px-4 py-3 bg-dark-500 border border-dark-400 rounded-xl text-dark-50 placeholder-dark-200 transition-all text-sm sm:text-base">
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-dark-100 mb-2"><i class="fa-solid fa-phone mr-2 text-blood-500 text-xs"></i><span data-t="form.phone">Phone Number</span></label>
+                    <input type="tel" id="phone" data-tp="form.phonePlaceholder" placeholder="Enter your phone number" class="w-full px-4 py-3 bg-dark-500 border border-dark-400 rounded-xl text-dark-50 placeholder-dark-200 transition-all text-sm sm:text-base">
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-dark-100 mb-3"><i class="fa-solid fa-droplet mr-2 text-blood-500 text-xs"></i><span data-t="form.bloodType">Blood Type</span></label>
+                    <div class="grid grid-cols-4 gap-2" id="btGrid"></div>
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-dark-100 mb-2"><i class="fa-solid fa-location-dot mr-2 text-blood-500 text-xs"></i><span data-t="form.location">Location</span></label>
+                    <input type="text" id="location" data-tp="form.locationPlaceholder" placeholder="City or region" class="w-full px-4 py-3 bg-dark-500 border border-dark-400 rounded-xl text-dark-50 placeholder-dark-200 transition-all text-sm sm:text-base">
+                </div>
+                <div class="mb-8">
+                    <label class="block text-sm font-medium text-dark-100 mb-2"><i class="fa-solid fa-calendar mr-2 text-blood-500 text-xs"></i><span data-t="form.lastDonated">Last Donation Date</span></label>
+                    <input type="date" id="lastDonated" class="w-full px-4 py-3 bg-dark-500 border border-dark-400 rounded-xl text-dark-50 transition-all text-sm sm:text-base">
+                </div>
+                <button type="submit" id="submitBtn" class="w-full py-4 bg-blood-600 hover:bg-blood-500 text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-blood-600/20 flex items-center justify-center gap-2 text-sm sm:text-base">
+                    <i class="fa-solid fa-plus"></i>
+                    <span data-t="form.submit">Register</span>
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <div class="sep-line"></div>
+
+    <!-- ===== 捐赠者目录区 ===== -->
+    <section id="donors" class="relative py-20 sm:py-28">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-10 reveal">
+                <h2 class="font-cinzel font-bold text-3xl sm:text-4xl text-dark-50 mb-3" data-t="donors.title">Donor Directory</h2>
+                <p class="text-dark-200 text-sm sm:text-base" data-t="donors.subtitle">Find and connect with blood donors in your area</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 mb-8 reveal">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass search-icon absolute left-4 top-1/2 -translate-y-1/2 text-dark-200 text-sm"></i>
+                    <input type="text" id="searchInput" data-tp="donors.search" placeholder="Search by name..." class="w-full pl-11 pr-4 py-3 bg-dark-700 border border-dark-400 rounded-xl text-dark-50 placeholder-dark-200 transition-all text-sm sm:text-base" oninput="filterDonors()">
+                </div>
+                <div class="relative">
+                    <select id="bloodFilter" onchange="filterDonors()" class="appearance-none px-4 py-3 pe-10 bg-dark-700 border border-dark-400 rounded-xl text-dark-50 transition-all cursor-pointer w-full sm:w-48 text-sm sm:text-base">
+                        <option value="all" data-t="donors.all">All Types</option>
+                    </select>
+                    <i class="fa-solid fa-filter filter-icon absolute right-4 top-1/2 -translate-y-1/2 text-dark-200 text-xs pointer-events-none"></i>
+                </div>
+            </div>
+            <div id="donorsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="emptyState" class="hidden text-center py-20">
+                <div class="w-16 h-16 rounded-2xl bg-dark-600 flex items-center justify-center mx-auto mb-5">
+                    <i class="fa-solid fa-users-slash text-dark-300 text-2xl"></i>
+                </div>
+                <p class="text-dark-200 text-base" data-t="donors.noDonors">No donors registered yet. Be the first!</p>
+            </div>
+            <div id="noResults" class="hidden text-center py-20">
+                <div class="w-16 h-16 rounded-2xl bg-dark-600 flex items-center justify-center mx-auto mb-5">
+                    <i class="fa-solid fa-magnifying-glass text-dark-300 text-2xl"></i>
+                </div>
+                <p class="text-dark-200 text-base" data-t="donors.noResults">No donors match your search</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="sep-line"></div>
+
+    <!-- ===== 统计区 ===== -->
+    <section id="stats" class="py-20 sm:py-24">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6">
+            <div class="text-center mb-10 reveal">
+                <h2 class="font-cinzel font-bold text-2xl sm:text-3xl text-dark-50" data-t="stats.title">Our Impact</h2>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 reveal">
+                <div class="bg-dark-700/80 rounded-2xl p-6 border border-dark-400 text-center group hover:border-blood-700/30 transition-colors">
+                    <div class="w-14 h-14 rounded-xl bg-blood-950/80 flex items-center justify-center mx-auto mb-4 group-hover:bg-blood-900/50 transition-colors">
+                        <i class="fa-solid fa-users text-blood-500 text-xl"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-dark-50 mb-1 font-cinzel" id="statDonors">0</div>
+                    <div class="text-dark-200 text-sm" data-t="stats.donors">Registered Donors</div>
+                </div>
+                <div class="bg-dark-700/80 rounded-2xl p-6 border border-dark-400 text-center group hover:border-blood-700/30 transition-colors">
+                    <div class="w-14 h-14 rounded-xl bg-blood-950/80 flex items-center justify-center mx-auto mb-4 group-hover:bg-blood-900/50 transition-colors">
+                        <i class="fa-solid fa-droplet text-blood-500 text-xl"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-dark-50 mb-1 font-cinzel" id="statTypes">0</div>
+                    <div class="text-dark-200 text-sm" data-t="stats.types">Blood Types</div>
+                </div>
+                <div class="bg-dark-700/80 rounded-2xl p-6 border border-dark-400 text-center group hover:border-blood-700/30 transition-colors">
+                    <div class="w-14 h-14 rounded-xl bg-blood-950/80 flex items-center justify-center mx-auto mb-4 group-hover:bg-blood-900/50 transition-colors">
+                        <i class="fa-solid fa-location-dot text-blood-500 text-xl"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-dark-50 mb-1 font-cinzel" id="statLocations">0</div>
+                    <div class="text-dark-200 text-sm" data-t="stats.locations">Locations</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== 页脚 ===== -->
+    <footer class="border-t border-dark-400/60 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+            <div class="flex items-center justify-center gap-2 mb-2">
+                <i class="fa-solid fa-droplet text-blood-600 text-sm"></i>
+                <span class="font-cinzel font-bold text-sm text-dark-50">BROTHERS IN BLOOD</span>
+                <span class="text-dark-300 text-xs">by DJASSER</span>
+            </div>
+            <p class="text-dark-200 text-xs" data-t="footer.text">Made with passion to save lives</p>
+        </div>
+    </footer>
+
+    <!-- 提示条 -->
+    <div id="toast" class="toast"><i id="toastIcon" class="mr-2"></i><span id="toastMsg"></span></div>
+
+    <script>
+    /* ========== Firebase 初始化 ========== */
+    const firebaseConfig = {
+        apiKey: "AIzaSyC8A5DYwYjm7fLO8x-W8ITOdXB6_CaQicg",
+        authDomain: "brothers-in-blood-by-djasser.firebaseapp.com",
+        projectId: "brothers-in-blood-by-djasser",
+        storageBucket: "brothers-in-blood-by-djasser.firebasestorage.app",
+        messagingSenderId: "452535738840",
+        appId: "1:452535738840:web:478c7b75a1a0b0e05a92ad",
+        measurementId: "G-VPE7MW65NE"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    /* ========== 翻译字典 ========== */
+    const T = {
+        en: {
+            'nav.home':'Home','nav.register':'Register','nav.donors':'Donors',
+            'hero.badge':'Save Lives, Give Blood',
+            'hero.desc':'Every drop counts. Join our community of blood donors and help save lives.',
+            'hero.cta':'Become a Donor',
+            'form.title':'Register as a Donor','form.subtitle':'Fill in your details to join our donor network',
+            'form.name':'Full Name','form.namePlaceholder':'Enter your full name',
+            'form.phone':'Phone Number','form.phonePlaceholder':'Enter your phone number',
+            'form.bloodType':'Blood Type','form.location':'Location','form.locationPlaceholder':'City or region',
+            'form.lastDonated':'Last Donation Date','form.submit':'Register',
+            'donors.title':'Donor Directory','donors.subtitle':'Find and connect with blood donors in your area',
+            'donors.search':'Search by name...','donors.all':'All Types',
+            'donors.call':'Call','donors.copy':'Copy','donors.copied':'Copied!',
+            'donors.lastDonated':'Last donated',
+            'donors.noResults':'No donors match your search',
+            'donors.noDonors':'No donors registered yet. Be the first!',
+            'stats.title':'Our Impact','stats.donors':'Registered Donors','stats.types':'Blood Types','stats.locations':'Locations',
+            'footer.text':'Made with passion to save lives',
+            'toast.ok':'Successfully registered as a donor!','toast.err':'Please fill in all required fields','toast.cp':'Phone number copied!'
+        },
+        fr: {
+            'nav.home':'Accueil','nav.register':"S'inscrire",'nav.donors':'Donneurs',
+            'hero.badge':'Sauvez des Vies, Donnez du Sang',
+            'hero.desc':"Chaque goutte compte. Rejoignez notre communauté de donneurs de sang et aidez à sauver des vies.",
+            'hero.cta':'Devenir Donneur',
+            'form.title':"Inscription comme Donneur",'form.subtitle':'Remplissez vos coordonnées pour rejoindre notre réseau',
+            'form.name':'Nom Complet','form.namePlaceholder':'Entrez votre nom complet',
+            'form.phone':'Numéro de Téléphone','form.phonePlaceholder':'Entrez votre numéro de téléphone',
+            'form.bloodType':'Groupe Sanguin','form.location':'Localisation','form.locationPlaceholder':'Ville ou région',
+            'form.lastDonated':'Date du Dernier Don','form.submit':"S'inscrire",
+            'donors.title':'Annuaire des Donneurs','donors.subtitle':'Trouvez et contactez des donneurs de sang',
+            'donors.search':'Rechercher par nom...','donors.all':'Tous les Types',
+            'donors.call':'Appeler','donors.copy':'Copier','donors.copied':'Copié!',
+            'donors.lastDonated':'Dernier don',
+            'donors.noResults':'Aucun donneur ne correspond',
+            'donors.noDonors':'Aucun donneur inscrit. Soyez le premier!',
+            'stats.title':'Notre Impact','stats.donors':'Donneurs Inscrits','stats.types':'Groupes Sanguins','stats.locations':'Localisations',
+            'footer.text':'Fait avec passion pour sauver des vies',
+            'toast.ok':'Inscription réussie!','toast.err':'Veuillez remplir tous les champs','toast.cp':'Numéro copié!'
+        },
+        ar: {
+            'nav.home':'الرئيسية','nav.register':'التسجيل','nav.donors':'المتبرعون',
+            'hero.badge':'أنقذ أرواحاً، تبرع بالدم',
+            'hero.desc':'كل قطرة مهمة. انضم إلى مجتمع متبرعي الدم وساعد في إنقاذ الأرواح.',
+            'hero.cta':'كن متبرعاً',
+            'form.title':'التسجيل كمتبرع','form.subtitle':'املأ بياناتك للانضمام إلى شبكة المتبرعين',
+            'form.name':'الاسم الكامل','form.namePlaceholder':'أدخل اسمك الكامل',
+            'form.phone':'رقم الهاتف','form.phonePlaceholder':'أدخل رقم هاتفك',
+            'form.bloodType':'فصيلة الدم','form.location':'الموقع','form.locationPlaceholder':'المدينة أو المنطقة',
+            'form.lastDonated':'تاريخ آخر تبرع','form.submit':'تسجيل',
+            'donors.title':'دليل المتبرعين','donors.subtitle':'ابحث وتواصل مع متبرعي الدم في منطقتك',
+            'donors.search':'البحث بالاسم...','donors.all':'جميع الفصائل',
+            'donors.call':'اتصال','donors.copy':'نسخ','donors.copied':'تم النسخ!',
+            'donors.lastDonated':'آخر تبرع',
+            'donors.noResults':'لا يوجد متبرعون مطابقون للبحث',
+            'donors.noDonors':'لا يوجد متبرعون مسجلون بعد. كن أول من يسجل!',
+            'stats.title':'تأثيرنا','stats.donors':'المتبرعون المسجلون','stats.types':'فصائل الدم','stats.locations':'المواقع',
+            'footer.text':'صنع بشغف لإنقاذ الأرواح',
+            'toast.ok':'تم التسجيل بنجاح!','toast.err':'يرجى ملء جميع الحقول','toast.cp':'تم نسخ الرقم!'
+        }
+    };
+
+    /* ========== 应用状态 ========== */
+    let lang = localStorage.getItem('bib_lang') || 'en';
+    let donors = [];
+    let selBT = '';
+    const BT = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+    const BT_COLORS = {
+        'A+':{bg:'rgba(220,38,38,.12)',tx:'#f87171',bd:'rgba(220,38,38,.28)'},
+        'A-':{bg:'rgba(185,28,28,.12)',tx:'#ef4444',bd:'rgba(185,28,28,.28)'},
+        'B+':{bg:'rgba(234,88,12,.12)',tx:'#fb923c',bd:'rgba(234,88,12,.28)'},
+        'B-':{bg:'rgba(194,65,12,.12)',tx:'#f97316',bd:'rgba(194,65,12,.28)'},
+        'AB+':{bg:'rgba(168,85,247,.12)',tx:'#c084fc',bd:'rgba(168,85,247,.28)'},
+        'AB-':{bg:'rgba(147,51,234,.12)',tx:'#a855f7',bd:'rgba(147,51,234,.28)'},
+        'O+':{bg:'rgba(16,185,129,.12)',tx:'#34d399',bd:'rgba(16,185,129,.28)'},
+        'O-':{bg:'rgba(5,150,105,.12)',tx:'#10b981',bd:'rgba(5,150,105,.28)'}
+    };
+
+    /* ========== 工具函数 ========== */
+    function t(k){ return (T[lang] && T[lang][k]) || T.en[k] || k; }
+    function esc(s){ if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+    function fmtDate(ds){
+        if(!ds) return '—';
+        const d=new Date(ds+'T00:00:00');
+        return d.toLocaleDateString(lang==='ar'?'ar-DZ':lang,{year:'numeric',month:'long',day:'numeric'});
+    }
+
+    /* ========== 语言切换 ========== */
+    function setLang(l){
+        lang = l;
+        localStorage.setItem('bib_lang', l);
+        const html = document.documentElement;
+        html.lang = l;
+        html.dir = l==='ar' ? 'rtl' : 'ltr';
+        document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.getAttribute('data-t')); });
+        document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.getAttribute('data-tp')); });
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            const active = btn.getAttribute('data-lang')===l;
+            btn.className = 'lang-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all ' +
+                (active ? 'bg-blood-600 text-white' : 'text-dark-200 hover:text-dark-50 hover:bg-dark-600/50');
+        });
+        renderDonors(getFiltered());
+    }
+
+    /* ========== 血型选择器 ========== */
+    function buildBTGrid(){
+        const g = document.getElementById('btGrid');
+        g.innerHTML = '';
+        BT.forEach(bt => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'bt-btn py-2.5 px-1 bg-dark-500 border border-dark-400 rounded-lg text-dark-100 text-sm font-bold text-center';
+            b.textContent = bt;
+            b.onclick = () => {
+                selBT = selBT===bt ? '' : bt;
+                g.querySelectorAll('.bt-btn').forEach(x => x.classList.remove('sel'));
+                if(selBT) b.classList.add('sel');
+            };
+            g.appendChild(b);
+        });
+    }
+
+    function buildBTFilter(){
+        const s = document.getElementById('bloodFilter');
+        BT.forEach(bt => {
+            const o = document.createElement('option');
+            o.value = bt; o.textContent = bt;
+            s.appendChild(o);
+        });
+    }
+
+    /* ========== 表单提交 ========== */
+    function handleSubmit(e){
+        e.preventDefault();
+        const name = document.getElementById('fullName').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+        const loc = document.getElementById('location').value.trim();
+        const ld = document.getElementById('lastDonated').value;
+        if(!name || !phone || !selBT || !loc){ toast(t('toast.err'),'error'); return false; }
+
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>';
+
+        db.ref('donors').push({
+            fullName: name,
+            phone: phone,
+            bloodType: selBT,
+            location: loc,
+            lastDonated: ld || '',
+            registeredAt: new Date().toISOString()
+        }).then(() => {
+            toast(t('toast.ok'),'success');
+            document.getElementById('donorForm').reset();
+            selBT = '';
+            document.querySelectorAll('.bt-btn').forEach(x => x.classList.remove('sel'));
+            setTimeout(() => scrollTo_('donors'), 600);
+        }).catch(err => {
+            toast('Error: ' + err.message, 'error');
+        }).finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i> <span data-t="form.submit">'+t('form.submit')+'</span>';
+        });
+        return false;
+    }
+
+    /* ========== 实时监听捐赠者数据 ========== */
+    function listenDonors(){
+        db.ref('donors').on('value', snap => {
+            donors = [];
+            snap.forEach(child => { donors.push({ id: child.key, ...child.val() }); });
+            updateStats();
+            renderDonors(getFiltered());
+        });
+    }
+
+    /* ========== 搜索与筛选 ========== */
+    function getFiltered(){
+        const q = document.getElementById('searchInput').value.trim().toLowerCase();
+        const bf = document.getElementById('bloodFilter').value;
+        return donors.filter(d => {
+            const mName = !q || d.fullName.toLowerCase().includes(q);
+            const mBT = bf==='all' || d.bloodType===bf;
+            return mName && mBT;
+        });
+    }
+    function filterDonors(){ renderDonors(getFiltered()); }
+
+    /* ========== 渲染捐赠者卡片 ========== */
+    function renderDonors(list){
+        const grid = document.getElementById('donorsGrid');
+        const empty = document.getElementById('emptyState');
+        const noRes = document.getElementById('noResults');
+        grid.innerHTML = '';
+
+        if(donors.length===0){ empty.classList.remove('hidden'); noRes.classList.add('hidden'); return; }
+        empty.classList.add('hidden');
+        if(list.length===0){ noRes.classList.remove('hidden'); return; }
+        noRes.classList.add('hidden');
+
+        list.forEach((d, i) => {
+            const c = BT_COLORS[d.bloodType] || BT_COLORS['O+'];
+            const card = document.createElement('div');
+            card.className = 'donor-card bg-dark-700/80 rounded-2xl p-5 card-enter';
+            card.style.animationDelay = (i*0.04)+'s';
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-11 h-11 rounded-xl bg-dark-500 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-user text-dark-200"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="font-semibold text-dark-50 text-[15px] truncate">${esc(d.fullName)}</h3>
+                            <p class="text-dark-200 text-xs flex items-center gap-1"><i class="fa-solid fa-location-dot text-[10px]"></i><span class="truncate">${esc(d.location)}</span></p>
+                        </div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-black shrink-0" style="background:${c.bg};color:${c.tx};border:1px solid ${c.bd}">${d.bloodType}</span>
+                </div>
+                <div class="text-xs text-dark-200 mb-4 flex items-center gap-1.5">
+                    <i class="fa-regular fa-calendar text-[10px]"></i>
+                    <span>${t('donors.lastDonated')}: ${fmtDate(d.lastDonated)}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="tel:${esc(d.phone)}" class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blood-600 hover:bg-blood-500 text-white rounded-xl transition-all text-sm font-medium">
+                        <i class="fa-solid fa-phone text-xs"></i>${t('donors.call')}
+                    </a>
+                    <button onclick="copyNum('${esc(d.phone)}',this)" class="flex items-center justify-center gap-1.5 py-2.5 px-4 bg-dark-500 hover:bg-dark-400 text-dark-100 rounded-xl transition-all text-sm font-medium border border-dark-400 shrink-0">
+                        <i class="fa-regular fa-copy text-xs"></i><span class="hidden sm:inline">${t('donors.copy')}</span>
+                    </button>
+                </div>`;
+            grid.appendChild(card);
+        });
+    }
+
+    /* ========== 复制号码 ========== */
+    function copyNum(num, btn){
+        navigator.clipboard.writeText(num).then(() => {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check text-xs text-emerald-400"></i><span class="hidden sm:inline text-emerald-400">'+t('donors.copied')+'</span>';
+            toast(t('toast.cp'),'success');
+            setTimeout(() => { btn.innerHTML = orig; }, 1800);
+        }).catch(() => {
+            /* 降级方案：使用临时输入框 */
+            const inp = document.createElement('input');
+            inp.value = num;
+            document.body.appendChild(inp);
+            inp.select();
+            document.execCommand('copy');
+            document.body.removeChild(inp);
+            toast(t('toast.cp'),'success');
+        });
+    }
+
+    /* ========== 统计更新 ========== */
+    function updateStats(){
+        animNum('statDonors', donors.length);
+        animNum('statTypes', new Set(donors.map(d=>d.bloodType)).size);
+        animNum('statLocations', new Set(donors.map(d=>d.location)).size);
+    }
+    function animNum(id, target){
+        const el = document.getElementById(id);
+        const cur = parseInt(el.textContent)||0;
+        if(cur===target){ el.textContent=target; return; }
+        const diff = target-cur;
+        const steps = 18;
+        let step = 0;
+        const iv = setInterval(() => {
+            step++;
+            const val = Math.round(cur + diff * (step/steps));
+            el.textContent = val;
+            if(step>=steps){ el.textContent=target; clearInterval(iv); }
+        }, 25);
+    }
+
+    /* ========== 提示条 ========== */
+    function toast(msg, type){
+        const el = document.getElementById('toast');
+        const ic = document.getElementById('toastIcon');
+        const tx = document.getElementById('toastMsg');
+        el.className = 'toast ' + type;
+        ic.className = type==='success' ? 'fa-solid fa-circle-check mr-2' : 'fa-solid fa-circle-exclamation mr-2';
+        tx.textContent = msg;
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => el.classList.remove('show'), 3200);
+    }
+
+    /* ========== 滚动导航 ========== */
+    function scrollTo_(id){ document.getElementById(id).scrollIntoView({behavior:'smooth'}); }
+
+    /* ========== 滚动揭示 ========== */
+    function initReveal(){
+        const obs = new IntersectionObserver(entries => {
+            entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+        }, {threshold:0.08});
+        document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+    }
+
+    /* ========== 生成浮动血细胞 ========== */
+    function genCells(){
+        const box = document.getElementById('bloodCells');
+        for(let i=0;i<22;i++){
+            const c = document.createElement('div');
+            c.className = 'blood-cell';
+            const sz = Math.random()*50+12;
+            c.style.width = sz+'px';
+            c.style.height = sz+'px';
+            c.style.left = Math.random()*100+'%';
+            c.style.bottom = '-'+sz+'px';
+            c.style.animationDuration = (Math.random()*20+14)+'s';
+            c.style.animationDelay = (Math.random()*18)+'s';
+            box.appendChild(c);
+        }
+    }
+
+    /* ========== 初始化 ========== */
+    document.addEventListener('DOMContentLoaded', () => {
+        genCells();
+        buildBTGrid();
+        buildBTFilter();
+        setLang(lang);
+        listenDonors();
+        initReveal();
+    });
+    </script>
+</body>
+</html>
