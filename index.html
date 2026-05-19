@@ -428,13 +428,13 @@
     <script>
     /* ========== Firebase ========== */
     const firebaseConfig = {
-        apiKey: "AIzaSyC8A5DYwYjm7fLO8x-W8ITOdXB6_CaQicg",
-        authDomain: "brothers-in-blood-by-djasser.firebaseapp.com",
-        projectId: "brothers-in-blood-by-djasser",
-        storageBucket: "brothers-in-blood-by-djasser.firebasestorage.app",
-        messagingSenderId: "452535738840",
-        appId: "1:452535738840:web:478c7b75a1a0b0e05a92ad",
-        measurementId: "G-VPE7MW65NE"
+        apiKey: "AIzaSyCv2t7_d8uhnwN_0PW0nhvjtxUd9IuKoeU",
+        authDomain: "djasser-bro.firebaseapp.com",
+        projectId: "djasser-bro",
+        storageBucket: "djasser-bro.firebasestorage.app",
+        messagingSenderId: "755148648550",
+        appId: "1:755148648550:web:9487534a7e5ff626063da7",
+        measurementId: "G-35YZJCGMN2"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
@@ -562,11 +562,9 @@
         const d=new Date(ds+'T00:00:00');
         return d.toLocaleDateString(lang==='ar'?'ar-DZ':lang,{year:'numeric',month:'long',day:'numeric'});
     }
-    /* 清理电话号码用于 wa.me 链接 */
     function cleanPhone(p){
         return p.replace(/[\s\-\(\)\+]/g,'').replace(/^0/,'');
     }
-    /* 构建Facebook链接 */
     function fbLink(f){
         if(!f) return '#';
         if(f.startsWith('http')) return f;
@@ -739,7 +737,6 @@
         return donors.filter(d => {
             const mName = !q || d.fullName.toLowerCase().includes(q);
             const mBT = bf==='all' || d.bloodType===bf;
-            /* 标签筛选 */
             let mTab = true;
             if(activeTab==='platelets') mTab = d.platelets === true;
             else if(activeTab==='blood') mTab = d.platelets !== true;
@@ -772,12 +769,10 @@
             card.className = 'donor-card bg-dark-700/80 rounded-2xl p-5 card-enter';
             card.style.animationDelay = (i*0.04)+'s';
 
-            /* 徽章行 */
             let badges = `<span class="px-2.5 py-1 rounded-lg text-xs font-black shrink-0" style="background:${c.bg};color:${c.tx};border:1px solid ${c.bd}">${d.bloodType}</span>`;
             if(isPlt) badges += `<span class="px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 bg-amber-900/30 text-amber-400 border border-amber-700/30"><i class="fa-solid fa-vials mr-1"></i>${t('form.platelets')}</span>`;
             if(isNever) badges += `<span class="px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 bg-emerald-900/30 text-emerald-400 border border-emerald-700/30"><i class="fa-solid fa-star mr-1"></i>${t('donors.neverLabel')}</span>`;
 
-            /* 社交按钮行 */
             let socials = `<a href="tel:${esc(d.phone)}" class="social-btn bg-blood-600 hover:bg-blood-500 text-white"><i class="fa-solid fa-phone"></i></a>`;
             if(hasWA) socials += `<a href="https://wa.me/${cleanPhone(d.whatsapp)}" target="_blank" rel="noopener" class="social-btn bg-emerald-600 hover:bg-emerald-500 text-white"><i class="fa-brands fa-whatsapp"></i></a>`;
             if(hasFB) socials += `<a href="${fbLink(d.facebook)}" target="_blank" rel="noopener" class="social-btn bg-blue-600 hover:bg-blue-500 text-white"><i class="fa-brands fa-facebook-f"></i></a>`;
